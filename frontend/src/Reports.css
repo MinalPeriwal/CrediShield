@@ -1,0 +1,138 @@
+.reports-container {
+  padding: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.reports-header {
+  margin-bottom: 30px;
+}
+
+.reports-header h1 {
+  color: #1e293b;
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+}
+
+.reports-header p {
+  color: #64748b;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.reports-actions {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 40px;
+}
+
+.btn-generate, .btn-export {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-generate {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  color: white;
+}
+
+.btn-generate:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+}
+
+.btn-export {
+  background: #f1f5f9;
+  color: #475569;
+  border: 2px solid #e2e8f0;
+}
+
+.btn-export:hover {
+  background: #e2e8f0;
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.report-card {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.report-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.report-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.report-content h3 {
+  color: #1e293b;
+  font-size: 1.3rem;
+  margin: 0 0 10px 0;
+}
+
+.report-content p {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin: 0 0 15px 0;
+  line-height: 1.5;
+}
+
+.report-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.report-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-view, .btn-download {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-view {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.btn-view:hover {
+  background: #bfdbfe;
+}
+
+.btn-download {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.btn-download:hover {
+  background: #a7f3d0;
+}
