@@ -1,0 +1,38 @@
+SHAP explainer could not be initialized: The passed model is not callable and cannot be analyzed directly with the given masker! Model: VotingClassifier(estimators=[('rf',
+                              RandomForestClassifier(class_weight='balanced',
+                                                     max_depth=15,
+                                                     min_samples_leaf=2,
+                                                     min_samples_split=5,
+                                                     n_estimators=500,
+                                                     n_jobs=-1,
+                                                     random_state=42)),
+                             ('gb',
+                              GradientBoostingClassifier(learning_rate=0.05,
+                                                         max_depth=7,
+                                                         min_samples_leaf=2,
+                                                         min_samples_split=5,
+                                                         n_estimators=300,
+                                                         random_state=42,
+                                                         subsample=0.8)),
+                             ('xgb',
+                              XGBClassifie...
+                                            grow_policy=None,
+                                            importance_type=None,
+                                            interaction_constraints=None,
+                                            learning_rate=0.05, max_bin=None,
+                                            max_cat_threshold=None,
+                                            max_cat_to_onehot=None,
+                                            max_delta_step=None, max_depth=8,
+                                            max_leaves=None, min_child_weight=3,
+                                            missing=nan,
+                                            monotone_constraints=None,
+                                            multi_strategy=None,
+                                            n_estimators=400, n_jobs=-1,
+                                            num_parallel_tree=None, ...))],
+                 n_jobs=-1, voting='soft')
+INFO:     Started server process [22620]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8000): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
