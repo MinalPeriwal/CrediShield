@@ -79,7 +79,7 @@ def verify_otp(data: VerifyOtpRequest, db: Session = Depends(get_db)):
     _otp_store.pop(data.email, None)
     user = register_user(db, reg["fullName"], reg["email"], reg["password"], reg["organization"], reg.get("role", "bank_employee"))
     token = create_access_token({"sub": user.id})
-    return {"access_token": token, "fullName": user.full_name, "role": user.role}
+    return {"access_token": token, "fullName": user.full_name, "role": user.role, "organization": user.organization, "email": user.email}
 
 
 @router.post("/login")
@@ -89,4 +89,4 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = create_access_token({"sub": user.id})
-    return {"access_token": token, "fullName": user.full_name, "role": user.role}
+    return {"access_token": token, "fullName": user.full_name, "role": user.role, "organization": user.organization, "email": user.email}

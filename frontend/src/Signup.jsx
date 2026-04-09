@@ -76,6 +76,8 @@ function Signup({ onSignup, onSwitchToLogin }) {
         localStorage.setItem("token", data.access_token);
         localStorage.setItem("fullName", data.fullName);
         localStorage.setItem("role", data.role);
+        localStorage.setItem("organization", data.organization || "");
+        localStorage.setItem("userEmail", data.email || "");
         onSignup(data.fullName, data.role);
       }
     } catch {
@@ -122,7 +124,31 @@ function Signup({ onSignup, onSwitchToLogin }) {
     <div className="signup-container">
       <div className="signup-card">
         <div className="signup-header">
-          <span className="signup-icon">🛡️</span>
+          <svg width="52" height="52" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:"block",margin:"0 auto 14px"}}>
+            <defs>
+              <linearGradient id="sg1" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#29b6f6"/>
+                <stop offset="100%" stopColor="#1a237e"/>
+              </linearGradient>
+              <linearGradient id="sg2" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#81d4fa"/>
+                <stop offset="100%" stopColor="#29b6f6"/>
+              </linearGradient>
+            </defs>
+            <path d="M19 2L4 8v10c0 9 6.5 16.5 15 19 8.5-2.5 15-10 15-19V8L19 2z" fill="url(#sg1)"/>
+            <path d="M19 2L4 8v10c0 9 6.5 16.5 15 19 8.5-2.5 15-10 15-19V8L19 2z" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+            <circle cx="19" cy="13" r="2" fill="white" opacity="0.95"/>
+            <circle cx="12" cy="19" r="1.5" fill="white" opacity="0.8"/>
+            <circle cx="26" cy="19" r="1.5" fill="white" opacity="0.8"/>
+            <circle cx="15" cy="25" r="1.5" fill="white" opacity="0.8"/>
+            <circle cx="23" cy="25" r="1.5" fill="white" opacity="0.8"/>
+            <line x1="19" y1="13" x2="12" y2="19" stroke="url(#sg2)" strokeWidth="1.2" opacity="0.9"/>
+            <line x1="19" y1="13" x2="26" y2="19" stroke="url(#sg2)" strokeWidth="1.2" opacity="0.9"/>
+            <line x1="12" y1="19" x2="15" y2="25" stroke="url(#sg2)" strokeWidth="1.2" opacity="0.9"/>
+            <line x1="26" y1="19" x2="23" y2="25" stroke="url(#sg2)" strokeWidth="1.2" opacity="0.9"/>
+            <line x1="15" y1="25" x2="23" y2="25" stroke="url(#sg2)" strokeWidth="1.2" opacity="0.9"/>
+            <circle cx="19" cy="19" r="1" fill="#81d4fa" opacity="0.7"/>
+          </svg>
           <h1>Create Account</h1>
           <p>Join CrediShield for AI-Powered Risk Assessment</p>
         </div>

@@ -38,11 +38,12 @@ def predict(
     try:
         result = predict_loan(data.dict())
 
-        # Derive risk level and status
+        # Calibrated thresholds from model's actual probability distribution
+        # on 5000 real Lending Club samples: p33=0.115, p66=0.233
         prob = result["risk_probability"]
-        risk_level = "Low" if prob < 0.3 else "Medium" if prob < 0.6 else "High"
+        risk_level = "Low" if prob < 0.115 else "Medium" if prob < 0.233 else "High"
         status = (
-            "Rejected" if result["default_prediction"] == "Default"
+            "Rejected" if risk_level == "High"
             else "Review" if risk_level == "Medium"
             else "Approved"
         )
@@ -136,7 +137,7 @@ def get_admin_stats(
             "recent_loans": [
                 {
                     "id": f"LA-{str(a.id).zfill(3)}",
-                    "amount": f"${a.loan_amnt:,.0f}",
+                    "amount": f"₹{a.loan_amnt:,.0f}",
                     "status": a.status,
                     "risk": a.risk_level,
                     "score": a.credit_score,
@@ -169,7 +170,7 @@ def get_reports(
     return [
         {
             "id": f"LA-{str(a.id).zfill(3)}",
-            "amount": f"${a.loan_amnt:,.0f}",
+            "amount": f"₹{a.loan_amnt:,.0f}",
             "risk": a.risk_level,
             "score": a.credit_score,
             "status": a.status,

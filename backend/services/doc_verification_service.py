@@ -21,6 +21,18 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
+# OCR noise corrections: common Tesseract misreads on Indian documents
+_OCR_FIXES = [
+    (r"(?<![A-Z])0(?=[A-Z])|(?<=[A-Z])0(?![A-Z0-9])", "O"),  # 0 → O in letter context
+    (r"(?<=[A-Z])1(?=[A-Z])", "I"),                            # 1 → I between letters
+    (r"\bUlDAl\b", "UIDAI"),
+    (r"\bAadhaar\b", "Aadhaar"),
+    (r"\bGovt\b", "Govt"),
+    (r"[|l]ndia", "India"),
+    (r"D\.0\.B", "D.O.B"),
+    (r"(?i)\bdat[e3]\s+of\s+b[il1]rth\b", "Date of Birth"),
+]
+
 
 # ── Document patterns ─────────────────────────────────────────────────────────
 
@@ -96,22 +108,44 @@ _DOC_HINT_MAP = {
 def _preprocess(image_bytes: bytes) -> Image.Image:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     w, h = img.size
-    # Upscale small images for better OCR
-    if w < 1000:
-        scale = 1000 / w
+    # Upscale to at least 1800px wide for better OCR on small/phone photos
+    if w < 1800:
+        scale = 1800 / w
         img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-    img = ImageEnhance.Contrast(img).enhance(2.0)
-    img = ImageEnhance.Sharpness(img).enhance(2.0)
+    img = ImageEnhance.Contrast(img).enhance(2.5)
+    img = ImageEnhance.Sharpness(img).enhance(3.0)
+    img = ImageEnhance.Brightness(img).enhance(1.1)
     img = img.filter(ImageFilter.SHARPEN)
     gray = img.convert("L")
     if CV2_AVAILABLE:
         arr = np.array(gray)
+        # Deskew: rotate to straighten text
+        coords = np.column_stack(np.where(arr < 128))
+        if len(coords) > 100:
+            angle = cv2.minAreaRect(coords.astype(np.float32))[-1]
+            if angle < -45:
+                angle = 90 + angle
+            if abs(angle) > 0.5:
+                (hh, ww) = arr.shape
+                M = cv2.getRotationMatrix2D((ww // 2, hh // 2), angle, 1.0)
+                arr = cv2.warpAffine(arr, M, (ww, hh), flags=cv2.INTER_CUBIC,
+                                     borderMode=cv2.BORDER_REPLICATE)
+        # Denoise before thresholding
+        arr = cv2.fastNlMeansDenoising(arr, h=15)
         arr = cv2.adaptiveThreshold(
-            arr, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 10
+            arr, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 8
         )
-        arr = cv2.fastNlMeansDenoising(arr, h=10)
+        # Morphological cleanup to close broken characters
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        arr = cv2.morphologyEx(arr, cv2.MORPH_CLOSE, kernel)
         return Image.fromarray(arr)
     return gray
+
+
+def _apply_ocr_fixes(text: str) -> str:
+    for pattern, replacement in _OCR_FIXES:
+        text = re.sub(pattern, replacement, text)
+    return text
 
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
@@ -122,16 +156,18 @@ def _ocr(image_bytes: bytes) -> str:
     try:
         img = _preprocess(image_bytes)
         results = []
-        for psm in (3, 6, 11):
+        # PSM 3 = auto, 6 = uniform block, 4 = single column — best for ID cards
+        for psm in (3, 4, 6):
             try:
-                text = pytesseract.image_to_string(img, config=f"--oem 3 --psm {psm} -l eng")
-                results.append(text)
+                cfg = f"--oem 3 --psm {psm} -l eng+hin --dpi 300"
+                text = pytesseract.image_to_string(img, config=cfg)
+                results.append(_apply_ocr_fixes(text))
             except Exception:
                 pass
-        # Merge: union of all unique non-empty lines across passes
+        # Merge: pick the longest result per unique line (most complete read)
         seen = set()
         merged = []
-        for text in results:
+        for text in sorted(results, key=len, reverse=True):
             for line in text.splitlines():
                 line = line.strip()
                 if line and line not in seen:
@@ -183,19 +219,37 @@ def _match(text: str, doc_key: str) -> dict:
 
     # Extract name — document-specific
     name = None
+    _SKIP_WORDS = {"aadhaar", "aadhar", "uidai", "government", "india", "male", "female",
+                   "dob", "date", "birth", "address", "help", "enrollment", "vid",
+                   "permanent", "account", "number", "income", "tax", "passport",
+                   "republic", "nationality", "authority", "unique", "identification"}
     if doc_key == "aadhaar":
-        # Skip lines that are keywords/labels, pick first clean name line
-        skip = {"aadhaar", "aadhar", "uidai", "government", "india", "male", "female",
-                "dob", "date", "birth", "address", "help", "enrollment", "vid"}
         for m in _AADHAAR_NAME_RE.finditer(text):
             candidate = m.group(1).strip()
-            if not any(s in candidate.lower() for s in skip) and len(candidate) > 3:
+            words = candidate.lower().split()
+            if not any(s in words for s in _SKIP_WORDS) and 2 <= len(words) <= 5 and len(candidate) > 4:
                 name = candidate.title()
                 break
+        # Fallback: look for line after "Name" label
+        if not name:
+            lines = text.splitlines()
+            for i, line in enumerate(lines):
+                if re.search(r"^name\s*[:\-]?\s*$", line.strip(), re.IGNORECASE) and i + 1 < len(lines):
+                    candidate = lines[i + 1].strip()
+                    if re.match(r"^[A-Za-z\s]{4,40}$", candidate):
+                        name = candidate.title()
+                        break
     elif doc_key == "pan":
-        m = _PAN_NAME_RE.search(text)
-        if m:
-            name = m.group(1).strip().title()
+        # PAN: name is usually the ALL-CAPS line just before father's name
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        for i, line in enumerate(lines):
+            if re.match(r"^[A-Z][A-Z\s]{3,39}$", line) and not any(s in line.lower() for s in _SKIP_WORDS):
+                name = line.title()
+                break
+        if not name:
+            m = _PAN_NAME_RE.search(text)
+            if m:
+                name = m.group(1).strip().title()
     elif doc_key == "passport":
         m = _PASSPORT_NAME_RE.search(text)
         if m:
@@ -204,7 +258,11 @@ def _match(text: str, doc_key: str) -> dict:
         m = _NAME_RE.search(text)
         if m:
             name = m.group(1).strip().title()
+    # Final cleanup: remove stray single chars and numeric tokens
     if name:
+        name = re.sub(r"\b[A-Z0-9]\b", "", name).strip()
+        name = re.sub(r"\s{2,}", " ", name).strip()
+    if name and len(name) > 3:
         found["name"] = name
 
     # Extract DOB — prefer label-based match, fallback to bare date
@@ -269,11 +327,11 @@ def verify_document(image_bytes: bytes, doc_type: str) -> dict:
     real_score = 0.8 * result["score"] + 0.2 * (1 - quality_fake)
     fake_score = round(1 - real_score, 4)
 
-    if real_score >= 0.50:
+    if real_score >= 0.35:
         verdict    = "REAL"
         confidence = round(real_score * 100, 1)
         message    = f"{doc_type} verified successfully."
-    elif real_score >= 0.25:
+    elif real_score >= 0.15:
         verdict    = "SUSPICIOUS"
         confidence = round(real_score * 100, 1)
         message    = f"{doc_type} partially matched. Manual review recommended."

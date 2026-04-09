@@ -42,6 +42,31 @@ except (ValueError, TypeError, NotImplementedError, AttributeError) as e:
     explainer = None
 
 
+FEATURE_LABELS = {
+    "loan_amnt":               "Loan Amount",
+    "term":                    "Loan Term",
+    "int_rate":                "Interest Rate",
+    "installment":             "Monthly Installment",
+    "grade":                   "Credit Grade",
+    "emp_length":              "Employment Length",
+    "home_ownership":          "Home Ownership",
+    "annual_inc":              "Annual Income",
+    "purpose":                 "Loan Purpose",
+    "dti":                     "Debt-to-Income Ratio",
+    "delinq_2yrs":             "Delinquencies (2 yrs)",
+    "inq_last_6mths":          "Credit Inquiries (6 mo)",
+    "open_acc":                "Open Accounts",
+    "revol_bal":               "Revolving Balance",
+    "revol_util":              "Credit Utilization",
+    "total_acc":               "Total Accounts",
+    "loan_to_income":          "Loan-to-Income Ratio",
+    "installment_to_income":   "Installment-to-Income Ratio",
+    "credit_utilization_ratio":"Credit Utilization Ratio",
+    "total_credit_lines":      "Total Credit Lines",
+    "inquiry_to_accounts":     "Inquiry-to-Accounts Ratio",
+}
+
+
 def generate_credit_score(risk_probability):
     """
     Convert risk probability into credit score (300-900)
@@ -51,59 +76,75 @@ def generate_credit_score(risk_probability):
     return max(300, min(score, 900))
 
 
+# Exact column order the scaler was fit on during training
+TRAIN_COLUMNS = [
+    "loan_amnt", "term", "int_rate", "installment", "grade",
+    "emp_length", "home_ownership", "annual_inc", "purpose",
+    "dti", "delinq_2yrs", "inq_last_6mths", "open_acc",
+    "revol_bal", "revol_util", "total_acc",
+    "loan_to_income", "installment_to_income", "credit_utilization_ratio",
+    "total_credit_lines", "inquiry_to_accounts"
+]
+
+
 def engineer_features(df):
-    """
-    Apply same feature engineering as training
-    """
     df['loan_to_income'] = df['loan_amnt'] / (df['annual_inc'] + 1)
     df['installment_to_income'] = df['installment'] / (df['annual_inc'] / 12 + 1)
     df['credit_utilization_ratio'] = df['revol_util'] / 100
     df['total_credit_lines'] = df['open_acc'] + df['total_acc']
     df['inquiry_to_accounts'] = df['inq_last_6mths'] / (df['open_acc'] + 1)
-    return df
+    return df[TRAIN_COLUMNS]  # enforce exact column order
 
 
 def predict_loan(data):
     df = pd.DataFrame([data])
-    
-    # Apply feature engineering only if using new model
+
     if USE_SCALER:
-        df = engineer_features(df)
-        df_scaled = scaler.transform(df)
+        df_engineered = engineer_features(df)
+        df_scaled = scaler.transform(df_engineered)
         prediction = model.predict(df_scaled)[0]
         probability = model.predict_proba(df_scaled)[0][1]
     else:
-        # Old model without scaling
-        prediction = model.predict(df)[0]
-        probability = model.predict_proba(df)[0][1]
-    
+        df_engineered = df
+        prediction = model.predict(df_engineered)[0]
+        probability = model.predict_proba(df_engineered)[0][1]
+
     credit_score = generate_credit_score(probability)
-    
-    # SHAP explanation
+
+    # SHAP explanation — use named DataFrame so columns are preserved
     feature_importance = {}
     if explainer:
         try:
-            if USE_SCALER:
-                shap_values = explainer(df_scaled)
-            else:
-                shap_values = explainer(df)
-            
+            df_shap = pd.DataFrame(df_scaled, columns=TRAIN_COLUMNS) if USE_SCALER else df_engineered
+            shap_values = explainer(df_shap)
             shap_vals = shap_values.values
-            
-            # Handle 3D SHAP output (samples, features, classes)
+
             if len(shap_vals.shape) == 3:
                 shap_vals = shap_vals[0, :, 1]
             else:
                 shap_vals = shap_vals[0]
-            
-            for i, col in enumerate(df.columns):
+
+            for i, col in enumerate(TRAIN_COLUMNS):
                 feature_importance[col] = float(shap_vals[i])
         except (ValueError, TypeError, RuntimeError) as e:
             logger.exception("SHAP explanation failed: %s", e)
-    
+
+    # Build top risk factors from SHAP values
+    risk_factors = []
+    if feature_importance:
+        sorted_factors = sorted(feature_importance.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
+        for feat, shap_val in sorted_factors:
+            risk_factors.append({
+                "feature": FEATURE_LABELS.get(feat, feat),
+                "impact": "increases risk" if shap_val > 0 else "decreases risk",
+                "direction": "negative" if shap_val > 0 else "positive",
+                "shap_value": round(shap_val, 4)
+            })
+
     return {
         "default_prediction": "Default" if prediction == 1 else "No Default",
         "risk_probability": float(probability),
         "credit_score": credit_score,
-        "feature_explanation": feature_importance
+        "feature_explanation": feature_importance,
+        "risk_factors": risk_factors
     }
