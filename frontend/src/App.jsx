@@ -5,6 +5,7 @@ import Signup from "./Signup.jsx";
 import Dashboard from "./Dashboard.jsx";
 import Reports from "./Reports.jsx";
 import CADashboard from "./CADashboard.jsx";
+import LandingPage from "./LandingPage.jsx";
 import "./App.css";
 
 function RiskAssessment({ onNewAssessment }) {
@@ -785,6 +786,7 @@ function RiskAssessment({ onNewAssessment }) {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
   const [showSignup, setShowSignup] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [userName, setUserName] = useState(localStorage.getItem("fullName") || "");
   const [userRole, setUserRole] = useState(localStorage.getItem("role") || "bank_employee");
@@ -837,6 +839,7 @@ function App() {
     setIsLoggedIn(false);
     setAssessments([]);
     setShowSignup(false);
+    setShowLogin(false);
     setCurrentPage("dashboard");
     setUserName("");
     setUserRole("bank_employee");
@@ -847,15 +850,20 @@ function App() {
 
   const switchToSignup = () => {
     setShowSignup(true);
+    setShowLogin(false);
   };
 
   const switchToLogin = () => {
     setShowSignup(false);
+    setShowLogin(true);
   };
 
   if (!isLoggedIn) {
     if (showSignup) {
       return <Signup onSignup={handleSignup} onSwitchToLogin={switchToLogin} />;
+    }
+    if (!showLogin) {
+      return <LandingPage onGetStarted={() => setShowLogin(true)} />;
     }
     return <Login onLogin={handleLogin} onSwitchToSignup={switchToSignup} />;
   }

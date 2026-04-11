@@ -21,14 +21,19 @@ if is_sqlite:
     )
 else:
     # PostgreSQL / Neon settings
-    # pool_pre_ping: reconnects if Neon serverless connection goes cold
-    # pool_size + max_overflow: handles concurrent requests
+    # pool_pre_ping: validates connection before use
+    # pool_recycle: recycles connections every 5 min (before Neon kills them)
+    # pool_pre_ping + recycle together handle Neon cold starts reliably
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
+        pool_recycle=300,
         pool_size=5,
         max_overflow=10,
-        connect_args={"sslmode": "require"}  # Neon requires SSL
+        connect_args={
+            "sslmode": "require",
+            "connect_timeout": 10,
+        }
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -39,5 +44,8 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

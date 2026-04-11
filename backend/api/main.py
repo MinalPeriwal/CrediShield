@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 from fastapi import FastAPI
@@ -15,9 +15,13 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CrediShield API", version="2.0")
 
+# Allow specific origins in production, fallback to * for local dev
+_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+origins = [o.strip() for o in _origins_env.split(",")] if _origins_env != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
